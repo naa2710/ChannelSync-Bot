@@ -1,0 +1,24 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+
+# Databases
+*.db
+*.db-journal
+
+# Logs
+*.log
+
+# Telegram Sessions
+*.session
+*.session-journal
+
+# User configurations
+settings.json
+
+# Scratch files
+scratch/
