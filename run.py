@@ -37,12 +37,32 @@ def cleanup_zombies():
     else:
         logger.info("لم يتم العثور على عمليات عالقة.")
 
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b"OK")
+    def log_message(self, format, *args):
+        return # Disable logging for health checks
+
+def start_health_check():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+    logger.info(f"Health check server started on port {port}")
+    server.serve_forever()
+
 def run_bots():
     cleanup_zombies()
+    
+    # تشغيل خادم فحص الحالة في خيط منفصل للمنصات السحابية
+    threading.Thread(target=start_health_check, daemon=True).start()
+    
     logger.info("جاري بدء تشغيل النظام الكامل الشامل (Launcher)...")
     
-    # تعريف قواميس العمليات
-    # نستخدم قاموس بدلاً من قائمة لتسهيل التعرف على العملية (bot أو userbot)
     scripts = {
         "bot.py": None,
         "user_bot.py": None
@@ -51,16 +71,15 @@ def run_bots():
     try:
         while True:
             for script, proc in scripts.items():
-                # إذا كانت العملية لم تبدأ بعد، أو توقفت
                 if proc is None or proc.poll() is not None:
                     if proc is not None:
                         logger.error(f"⚠️ العملية {script} (PID: {proc.pid}) توقفت! جاري إعادة التشغيل...")
-                        time.sleep(2) # انتظار قليل قبل إعادة التشغيل
+                        time.sleep(2)
                     
                     logger.info(f"🚀 بدء تشغيل {script}...")
                     scripts[script] = subprocess.Popen([sys.executable, script])
             
-            time.sleep(5) # فحص كل 5 ثوانٍ
+            time.sleep(5)
             
     except KeyboardInterrupt:
         logger.info("\nجاري إغلاق جميع العمليات بأمان...")
