@@ -79,3 +79,5 @@ API_ID = os.getenv("TELEGRAM_API_ID")
 API_HASH = os.getenv("TELEGRAM_API_HASH")
 PHONE = os.getenv("PHONE_NUMBER", "+967777231155")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+STRING_SESSION = os.getenv("STRING_SESSION")
+

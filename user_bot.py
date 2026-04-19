@@ -2,7 +2,7 @@ import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message
 
-from config import API_ID, API_HASH, PHONE, settings_manager
+from config import API_ID, API_HASH, PHONE, STRING_SESSION, settings_manager
 from core.sources import is_allowed_chat, add_source
 from core.transfer import transfer_message, is_valid_message_type, message_has_required_hashtag, transfer_last_n_files
 from core.dedup import dedup_manager
@@ -15,6 +15,7 @@ app = Client(
     api_id=API_ID,
     api_hash=API_HASH,
     phone_number=PHONE,
+    session_string=STRING_SESSION,
     workdir="."
 )
 
