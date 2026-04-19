@@ -3,3 +3,4 @@ tgcrypto
 python-dotenv
 python-telegram-bot
 APScheduler
+psutil
