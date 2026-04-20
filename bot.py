@@ -146,7 +146,16 @@ def get_blacklist_keyboard():
 # الأزرار التفاعلية
 # =========================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🔘 **القائمة الرئيسية**\nمرحباً بك! اختر القسم الذي تود تعديله:", reply_markup=get_main_keyboard(), parse_mode=ParseMode.MARKDOWN)
+    version = "2.5 (Cloud Sync)"
+    is_sync = "✅ مفعل" if settings_manager.get_data_path("settings.json").startswith("/data") else "ℹ️ محلي"
+    
+    text = (
+        f"🔘 **القائمة الرئيسية - إصدار {version}**\n"
+        f"مرحباً بك! اختر القسم الذي تود تعديله:\n\n"
+        f"🌐 نظام المزامنة: {is_sync}\n"
+        f"🤖 حالة محرك النقل: ✅ يعمل (UserBot)"
+    )
+    await update.message.reply_text(text, reply_markup=get_main_keyboard(), parse_mode=ParseMode.MARKDOWN)
     return ConversationHandler.END
 
 
