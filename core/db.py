@@ -1,3 +1,5 @@
+import sqlite3
+import os
 from config import get_data_path
 from datetime import datetime
 
