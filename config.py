@@ -52,6 +52,10 @@ class SettingsManager:
             "PENDING_FETCH_REQUESTS": []
         }
         self.settings = self.load_settings()
+        try:
+            self._last_mtime = os.path.getmtime(self.settings_file)
+        except OSError:
+            self._last_mtime = 0
 
     def load_settings(self):
         with self.lock:
@@ -80,13 +84,30 @@ class SettingsManager:
                 print(f"Error saving settings: {e}")
 
     def get(self, key):
-        # لم نعد بحاجة لـ load_settings في كل مرة لتحسين الأداء
-        # الاعتماد على النسخة في الذاكرة المزامنة
+        try:
+            mtime = os.path.getmtime(self.settings_file)
+            if getattr(self, '_last_mtime', 0) < mtime:
+                self.settings = self.load_settings()
+                self._last_mtime = mtime
+        except OSError:
+            pass
         return self.settings.get(key, self.defaults.get(key))
 
     def set(self, key, value):
+        # Reload before setting to not overwrite other process changes
+        try:
+            mtime = os.path.getmtime(self.settings_file)
+            if getattr(self, '_last_mtime', 0) < mtime:
+                self.settings = self.load_settings()
+        except OSError:
+            pass
+            
         self.settings[key] = value
         self.save_settings()
+        try:
+            self._last_mtime = os.path.getmtime(self.settings_file)
+        except OSError:
+            pass
 
     def get_all(self):
         return self.settings.copy()
