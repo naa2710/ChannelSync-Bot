@@ -50,7 +50,11 @@ def get_sources_manage_keyboard(page: int = 0):
     for chat_id in current_ids:
         title = titles.get(str(chat_id)) or f"ID: {chat_id}"
         keyboard.append([
-            InlineKeyboardButton(f"🗑 {title}", callback_data=f"del_source_{chat_id}_{page}")
+            InlineKeyboardButton(f"🔹 {title}", callback_data="noop"),
+        ])
+        keyboard.append([
+            InlineKeyboardButton("📥 سحب آخر 100", callback_data=f"fetch_100_{chat_id}_{page}"),
+            InlineKeyboardButton("🗑 حذف", callback_data=f"del_source_{chat_id}_{page}")
         ])
     
     nav_buttons = []
@@ -171,6 +175,19 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.answer("⚠️ فشل حذف المصدر")
         await query.edit_message_reply_markup(reply_markup=get_sources_manage_keyboard(page))
+        return ConversationHandler.END
+    elif data.startswith("fetch_100_"):
+        parts = data.split("_")
+        chat_id = int(parts[2])
+        
+        requests = settings_manager.get("PENDING_FETCH_REQUESTS") or []
+        # تجنب التكرار لنفس القناة
+        if not any(r['chat_id'] == chat_id for r in requests):
+            requests.append({"chat_id": chat_id, "limit": 100})
+            settings_manager.set("PENDING_FETCH_REQUESTS", requests)
+            await query.answer("⏳ تم جدولة سحب آخر 100 ملف من هذا المصدر في الخلفية!", show_alert=True)
+        else:
+            await query.answer("⚠️ هناك طلب سحب جاري لهذا المصدر بالفعل.")
         return ConversationHandler.END
     elif data == "menu_mechanics":
         await query.edit_message_text("▶️ **خيارات النقل:**", reply_markup=get_mechanics_keyboard(), parse_mode=ParseMode.MARKDOWN)

@@ -215,8 +215,8 @@ async def transfer_last_n_files(client: Client, chat_id: int, limit: int = 5):
     from core.dedup import dedup_manager
     
     try:
-        # Search for recent messages in the group/channel
-        async for msg in client.get_chat_history(chat_id, limit=50):
+        # البحث عن الرسائل الأخيرة في القناة
+        async for msg in client.get_chat_history(chat_id, limit=150):
             if count >= limit:
                 break
                 

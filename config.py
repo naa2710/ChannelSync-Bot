@@ -5,10 +5,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+def get_data_path(filename):
+    """جلب مسار الملف مع دعم التخزين الدائم على المنصات السحابية."""
+    # Hugging Face Spaces mount persistent storage at /data
+    if os.path.exists("/data") and os.access("/data", os.W_OK):
+        return os.path.join("/data", filename)
+    
+    # Fallback to current directory for local dev or Koyeb without PV
+    return filename
+
 class SettingsManager:
     def __init__(self, settings_file="settings.json"):
-        self.settings_file = settings_file
+        self.settings_file = get_data_path(settings_file)
         self.lock = Lock()
+        self.on_change_callback = None # سيتم ضبطه من قبل اليوزر بوت للمزامنة
         self.defaults = {
             "TARGET_CHANNEL_ID": int(os.getenv("TARGET_CHANNEL_ID", "-1001234567890")),
             "ALLOWED_SOURCE_CHAT_IDS": [
@@ -38,7 +48,8 @@ class SettingsManager:
             "SOURCE_TITLES": {},
             "ENABLE_INDEXING": False,
             "INDEX_THRESHOLD": 50,
-            "PENDING_INDEX_ITEMS": []
+            "PENDING_INDEX_ITEMS": [],
+            "PENDING_FETCH_REQUESTS": []
         }
         self.settings = self.load_settings()
 
@@ -48,6 +59,7 @@ class SettingsManager:
                 try:
                     with open(self.settings_file, "r", encoding="utf-8") as f:
                         data = json.load(f)
+                        # دمج الإعدادات المحفوظة مع القيم الافتراضية لضمان وجود المفاتيح الجديدة
                         return {**self.defaults, **data}
                 except Exception:
                     return self.defaults.copy()
@@ -56,13 +68,20 @@ class SettingsManager:
     def save_settings(self):
         with self.lock:
             try:
+                # التأكد من وجود المجلد إذا كان مساراً فرعياً
+                os.makedirs(os.path.dirname(os.path.abspath(self.settings_file)), exist_ok=True)
                 with open(self.settings_file, "w", encoding="utf-8") as f:
                     json.dump(self.settings, f, indent=4, ensure_ascii=False)
+                
+                # استدعاء دالة المزامنة إذا كانت موجودة
+                if self.on_change_callback:
+                    self.on_change_callback()
             except Exception as e:
                 print(f"Error saving settings: {e}")
 
     def get(self, key):
-        self.settings = self.load_settings()
+        # لم نعد بحاجة لـ load_settings في كل مرة لتحسين الأداء
+        # الاعتماد على النسخة في الذاكرة المزامنة
         return self.settings.get(key, self.defaults.get(key))
 
     def set(self, key, value):
@@ -70,7 +89,6 @@ class SettingsManager:
         self.save_settings()
 
     def get_all(self):
-        self.settings = self.load_settings()
         return self.settings.copy()
 
 settings_manager = SettingsManager()
@@ -80,4 +98,5 @@ API_HASH = os.getenv("TELEGRAM_API_HASH")
 PHONE = os.getenv("PHONE_NUMBER", "+967777231155")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 STRING_SESSION = os.getenv("STRING_SESSION")
+
 

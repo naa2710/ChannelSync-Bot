@@ -1,8 +1,7 @@
-import sqlite3
-import os
+from config import get_data_path
 from datetime import datetime
 
-DB_PATH = "index.db"
+DB_PATH = get_data_path("index.db")
 
 def init_db():
     """تهيئة قاعدة البيانات وإنشاء الجداول إذا لم تكن موجودة."""

@@ -8,7 +8,24 @@ from core.transfer import transfer_message, is_valid_message_type, message_has_r
 from core.dedup import dedup_manager
 from core.logger import get_logger
 
+from core.logger import get_logger
+from core.sync import restore_backups, safe_sync_backup, upload_backups
+
 logger = get_logger("USERBOT")
+
+# دالة وسيطة لربط النظام المتزامن (SettingsManager) مع النظام غير المتزامن (Async)
+def sync_backup_wrapper():
+    if app.is_connected:
+        try:
+            # استخدام loop الحالي لتشغيل عملية الرفع في الخلفية
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(safe_sync_backup(app))
+        except Exception as e:
+            logger.debug(f"فشل جدولة المزامنة: {e}")
+
+# ربط الكولباك بمدير الإعدادات
+settings_manager.on_change_callback = sync_backup_wrapper
 
 app = Client(
     "channelsync_userbot",
@@ -209,6 +226,24 @@ async def monitor_pending_joins():
                 settings_manager.set("PENDING_JOINS", pending)
                 logger.info("Done processing this target.")
 
+            # === معالجة طلبات السحب المخصصة (Specific Fetch Requests) ===
+            fetch_reqs = settings_manager.get("PENDING_FETCH_REQUESTS") or []
+            if fetch_reqs:
+                current_req = fetch_reqs[0]
+                chat_id = current_req['chat_id']
+                limit = current_req['limit']
+                
+                logger.info(f"بدء تنفيذ طلب سحب مخصص للمصدر {chat_id} بحد {limit} ملفات...")
+                try:
+                    await transfer_last_n_files(app, chat_id, limit=limit)
+                    await app.send_message("me", f"✅ اكتملت عملية السحب المخصصة ({limit} ملف) للمصدر: `{chat_id}`")
+                except Exception as e:
+                    logger.error(f"فشل السحب المخصص للمصدر {chat_id}: {e}")
+                
+                # إزالة الطلب المكتمل
+                fetch_reqs.pop(0)
+                settings_manager.set("PENDING_FETCH_REQUESTS", fetch_reqs)
+
         except Exception as e:
             logger.exception("خطأ في نظام المعالجة الخلفي")
         
@@ -223,9 +258,28 @@ async def run_userbot():
         return
         
     await app.start()
-    asyncio.create_task(monitor_pending_joins())
-    from pyrogram import idle
     
+    # 1. استعادة البيانات من السحاب عند بدء التشغيل
+    try:
+        if await restore_backups(app):
+            logger.info("تم استعادة البيانات، جاري إعادة تحميل الإعدادات...")
+            settings_manager.settings = settings_manager.load_settings()
+    except Exception as e:
+        logger.error(f"فشل أثناء عملية الاستعادة الأولية: {e}")
+
+    # 2. تشغيل المهام الخلفية
+    asyncio.create_task(monitor_pending_joins())
+    
+    # 3. مهمة النسخ الاحتياطي الدوري (كل 6 ساعات مثلاً للضمان)
+    async def periodic_sync():
+        while True:
+            await asyncio.sleep(6 * 3600)
+            if app.is_connected:
+                await upload_backups(app)
+    
+    asyncio.create_task(periodic_sync())
+    
+    from pyrogram import idle
     logger.info("تم تشغيل محرك النقل التلقائي (UserBot) وهو الآن يراقب المصادر...")
     await idle()
     await app.stop()
