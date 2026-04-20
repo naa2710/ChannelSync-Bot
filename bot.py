@@ -3,7 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters, ConversationHandler
 
-from config import settings_manager, BOT_TOKEN
+from config import settings_manager, BOT_TOKEN, get_data_path
 from core.sources import add_source, remove_source, get_sources, clear_sources
 from core.logger import get_logger
 
@@ -147,7 +147,7 @@ def get_blacklist_keyboard():
 # =========================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     version = "2.5 (Cloud Sync)"
-    is_sync = "✅ مفعل" if settings_manager.get_data_path("settings.json").startswith("/data") else "ℹ️ محلي"
+    is_sync = "✅ مفعل" if get_data_path("settings.json").startswith("/data") else "ℹ️ محلي"
     
     text = (
         f"🔘 **القائمة الرئيسية - إصدار {version}**\n"
