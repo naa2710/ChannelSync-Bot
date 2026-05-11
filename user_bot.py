@@ -525,6 +525,8 @@ async def run_unified_engine():
         
     logger.info("جاري تشغيل المحرك الموحد...")
     await app.start()
+    me = await app.get_me()
+    logger.info(f"👤 تم تسجيل الدخول بواسطة الحساب: {me.first_name} (@{me.username if me.username else 'لا يوجد يوزر'})")
     await bot.start()
     
     # 1. استعادة البيانات من السحاب عند بدء التشغيل
