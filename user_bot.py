@@ -48,7 +48,11 @@ bot = Client(
     workdir="."
 )
 
-from core.ui import get_main_keyboard, get_sources_keyboard, get_sources_manage_keyboard, get_smart_settings_keyboard, get_stats_keyboard
+from core.ui import (
+    get_main_keyboard, get_sources_keyboard, get_sources_manage_keyboard, 
+    get_smart_settings_keyboard, get_stats_keyboard, get_tools_keyboard,
+    get_group_keyboard, get_targets_manage_keyboard, get_blacklist_keyboard
+)
 import core.db as db
 
 # قاموس لتخزين حالات المستخدمين (لعمليات الإدخال مثل إضافة قناة)
