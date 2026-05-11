@@ -48,20 +48,97 @@ bot = Client(
     workdir="."
 )
 
-@bot.on_message(filters.command("start"))
-async def bot_start(client, message):
-    await message.reply_text(
-        "🚀 **أهلاً بك في لوحة تحكم ChannelSync (المحرك الموحد)**\n\n"
-        "لقد تم تفعيل المحرك الجذري لتجاوز قيود السيرفر. البوت الآن يعمل بكامل طاقته.\n\n"
-        "🔗 **لوحة التحكم عبر الويب:**\n"
-        "يمكنك إدارة كافة الإعدادات والقنوات من هنا:\n"
-        "https://huggingface.co/spaces/48mee/ChannelSync-Bot-Managed\n\n"
-        "✅ محرك النقل: متصل\n"
-        "✅ محرك الأوامر: متصل",
-        disable_web_page_preview=True
-    )
+from core.ui import get_main_keyboard, get_sources_keyboard, get_sources_manage_keyboard, get_smart_settings_keyboard, get_stats_keyboard
+import core.db as db
 
-# دالة لتشغيل العميلين معاً
+# قاموس لتخزين حالات المستخدمين (لعمليات الإدخال مثل إضافة قناة)
+user_states = {}
+
+@bot.on_message(filters.command("start") & filters.private)
+async def bot_start(client, message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    version = "2.6 (Unified MTProto)"
+    text = (
+        f"🔘 **لوحة تحكم ChannelSync — {version}**\n\n"
+        f"أهلاً بك يا {message.from_user.first_name}!\n"
+        f"لقد تم تفعيل النظام الموحد لتجاوز كافة قيود الشبكة.\n\n"
+        f"اختر القسم الذي تود إدارته من الأسفل:"
+    )
+    await message.reply_text(text, reply_markup=get_main_keyboard())
+
+@bot.on_callback_query()
+async def on_callback(client, query):
+    data = query.data
+    user_id = query.from_user.id
+    
+    if user_id not in ADMIN_IDS:
+        await query.answer("❌ غير مسموح لك.", show_alert=True)
+        return
+
+    if data == "menu_main":
+        await query.edit_message_text("🔘 **لوحة التحكم الرئيسية:**", reply_markup=get_main_keyboard())
+    
+    elif data == "menu_sources":
+        await query.edit_message_text("📡 **إدارة المصادر والوجهات:**", reply_markup=get_sources_keyboard())
+    
+    elif data == "menu_stats":
+        total = db.get_files_count()
+        cat_stats = db.get_category_group_stats()
+        stats_text = "\n".join([f"🔸 {cat}: {count} ملف" for cat, count in cat_stats])
+        text = f"📊 **إحصائيات النظام:**\n\n🎯 إجمالي الملفات: {total}\n\n**التوزيع:**\n{stats_text}"
+        await query.edit_message_text(text, reply_markup=get_stats_keyboard())
+
+    elif data == "menu_smart_settings":
+        await query.edit_message_text("⚙️ **الإعدادات الذكية:**", reply_markup=get_smart_settings_keyboard())
+
+    elif data.startswith("manage_sources_"):
+        page = int(data.split("_")[-1])
+        await query.edit_message_text("📋 **قائمة المصادر:**", reply_markup=get_sources_manage_keyboard(page))
+
+    elif data == "add_source":
+        user_states[user_id] = "AWAIT_ADD_SOURCE"
+        await query.edit_message_text("➕ **إضافة قناة مصدر جديدة:**\n\nأرسل الآن **معرف القناة** أو **رابطها** أو **يوزرها**:\n(مثال: `@channel` أو `-100...`)", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ إلغاء", callback_data="menu_sources")]]))
+
+    elif data.startswith("toggle_"):
+        key = data.replace("toggle_", "").upper()
+        # تحويل المفاتيح المختصرة لمفاتيح الإعدادات
+        map_keys = {"DOCS_ONLY": "DOCUMENTS_ONLY", "HASHTAG": "REQUIRE_HASHTAG", "ADMINS": "ADMINS_ONLY", "COPY_MODE": "USE_COPY_INSTEAD_OF_FORWARD"}
+        real_key = map_keys.get(key, key)
+        current = settings_manager.get(real_key)
+        settings_manager.set(real_key, not current)
+        await query.answer(f"✅ تم التحديث")
+        await query.edit_message_reply_markup(reply_markup=get_smart_settings_keyboard())
+
+    await query.answer()
+
+# معالج النصوص (لحالات الإدخال)
+@bot.on_message(filters.private & filters.text)
+async def on_text(client, message):
+    user_id = message.from_user.id
+    if user_id not in ADMIN_IDS: return
+    
+    state = user_states.get(user_id)
+    if not state: return
+    
+    if state == "AWAIT_ADD_SOURCE":
+        text = message.text.strip()
+        from core.sources import add_source
+        # محاولة حل المعرف
+        try:
+            chat = await app.get_chat(text)
+            if add_source(chat.id, chat.title):
+                await message.reply_text(f"✅ تم إضافة المصدر بنجاح:\n**{chat.title}** (`{chat.id}`)", reply_markup=get_sources_keyboard())
+                user_states.pop(user_id, None)
+            else:
+                await message.reply_text("⚠️ هذا المصدر مضاف بالفعل.")
+        except Exception as e:
+            await message.reply_text(f"❌ فشل العثور على القناة: {e}\nتأكد أن اليوزربوت عضو فيها إذا كانت خاصة.")
+
+# =========================
+# المحرك الموحد
+# =========================
 async def start_all():
     await app.start()
     await bot.start()
