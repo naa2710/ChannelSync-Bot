@@ -167,3 +167,7 @@ PHONE = os.getenv("PHONE_NUMBER", "+967777231155")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 STRING_SESSION = os.getenv("STRING_SESSION")
 
+# استخراج معرفات المديرين من البيئة
+admin_ids_raw = os.getenv("ADMIN_IDS", "1347283140")
+ADMIN_IDS = [int(x.strip()) for x in admin_ids_raw.split(",") if x.strip().replace("-", "").isdigit()]
+

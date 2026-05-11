@@ -2,7 +2,7 @@ import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message
 
-from config import API_ID, API_HASH, PHONE, STRING_SESSION, settings_manager
+from config import API_ID, API_HASH, PHONE, STRING_SESSION, ADMIN_IDS, settings_manager
 from core.sources import is_allowed_chat, add_source
 from core.transfer import transfer_message, is_valid_message_type, message_has_required_hashtag, transfer_last_n_files
 from core.resolver import clean_identifier
@@ -159,9 +159,9 @@ async def start_all():
 # =========================
 # معالجات الأوامر (الإدارة عبر الرسائل المحفوظة)
 # =========================
-@app.on_message(filters.command(["ping", "start"], prefixes=[".", "/"]) & filters.me)
+@app.on_message(filters.command(["ping"], prefixes=[".", "/"]) & filters.me)
 async def ping_command(client: Client, message: Message):
-    await message.edit_text("✅ بونج! البوت متصل والجهة الناقلة تعمل بكفاءة.")
+    await message.edit_text("✅ المحرك الموحد متصل والجهة الناقلة تعمل بكفاءة.")
 
 @app.on_message(filters.command(["join", "انضم"], prefixes=[".", "/"]) & filters.me)
 async def join_command(client: Client, message: Message):
