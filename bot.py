@@ -1171,7 +1171,9 @@ def main():
         logger.error("BOT_TOKEN is missing or invalid in .env")
         return
 
-    app = Application.builder().token(BOT_TOKEN).build()
+    from telegram.request import HTTPXRequest
+    request = HTTPXRequest(connect_timeout=20.0, read_timeout=20.0)
+    app = Application.builder().token(BOT_TOKEN).request(request).build()
 
     setup_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(button_callback, pattern="^(add_new_target|add_source|set_max_messages|edit_header_text|add_blacklist_word|edit_source_label|edit_sender_label|set_index_threshold|btn_search|set_group_id|sp_set_header_.*|sp_set_target_.*|sp_select_target_.*|sp_settarget_.*|smt_.*|sp_media_filter_.*|sp_copy_settings_.*)$")],
