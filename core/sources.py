@@ -50,3 +50,4 @@ def get_sources() -> list:
 def clear_sources():
     """مسح جميع المصادر المعتمدة."""
     settings_manager.set("ALLOWED_SOURCE_CHAT_IDS", [])
+    settings_manager.set("SOURCE_TITLES", {})

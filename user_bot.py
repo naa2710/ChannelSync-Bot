@@ -5,9 +5,10 @@ from pyrogram.types import Message
 from config import API_ID, API_HASH, PHONE, STRING_SESSION, settings_manager
 from core.sources import is_allowed_chat, add_source
 from core.transfer import transfer_message, is_valid_message_type, message_has_required_hashtag, transfer_last_n_files
+from core.resolver import clean_identifier
+from core.index import generate_master_hub
+from core.group_index import rebuild_full_group_index, update_stats_message
 from core.dedup import dedup_manager
-from core.logger import get_logger
-
 from core.logger import get_logger
 from core.sync import restore_backups, safe_sync_backup, upload_backups
 
@@ -54,7 +55,7 @@ async def join_command(client: Client, message: Message):
     
     try:
         chat = await client.join_chat(chat_identifier)
-        if add_source(chat.id):
+        if add_source(chat.id, chat.title):
             await msg.edit_text(f"✅ تم الانضمام والاعتماد المباشر للمصدر:\n{chat.title} (`{chat.id}`)")
         else:
             await msg.edit_text(f"✅ تم الانضمام (المصدر معتمد مسبقاً): {chat.title}")
@@ -83,7 +84,8 @@ async def last5_command(client: Client, message: Message):
 
 @app.on_message(filters.all, group=-1)
 async def debug_all_messages(client: Client, message: Message):
-    logger.info(f"DEBUG: رسالة واردة في المحادثة {message.chat.id} | نوعها: {message.chat.type}")
+    if settings_manager.get("DEBUG_ALL_MESSAGES"):
+        logger.info(f"DEBUG: رسالة واردة في المحادثة {message.chat.id} | نوعها: {message.chat.type}")
 
 @app.on_message(filters.all)
 async def auto_transfer_router(client: Client, message: Message):
@@ -112,7 +114,7 @@ async def auto_transfer_router(client: Client, message: Message):
         return
 
     # 4. التحقق من نوع الرسالة (صور، ملفات، نصوص طويلة الخ)
-    if not is_valid_message_type(message):
+    if not is_valid_message_type(message, chat_id):
         logger.info(f"الرسالة ({message.id}) غير مطابقة لشروط النوع المسموح بالنقل.")
         return
 
@@ -158,19 +160,36 @@ async def monitor_pending_joins():
                 except Exception:
                     pass
 
+            # === معالجة تحديث بوابة الملاحة المركزية (Hub) ===
+            if settings_manager.get("TRIGGER_HUB_UPDATE"):
+                settings_manager.set("TRIGGER_HUB_UPDATE", False)
+                target_chat_id = settings_manager.get("TARGET_CHANNEL_ID")
+                logger.info("جاري تحديث بوابة الملاحة المركزية...")
+                await generate_master_hub(app, target_chat_id)
+                try:
+                    await app.send_message("me", "✅ تم تحديث بوابة الملاحة المركزية (Hub) في القناة بنجاح.")
+                except Exception:
+                    pass
+
+            # === معالجة إعادة بناء فهرس المجموعة التفاعلية ===
+            if settings_manager.get("TRIGGER_REBUILD_GROUP_INDEX"):
+                settings_manager.set("TRIGGER_REBUILD_GROUP_INDEX", False)
+                logger.info("جاري إعادة بناء فهرس المجموعة التفاعلية...")
+                await rebuild_full_group_index(app)
+                try:
+                    await app.send_message("me", "✅ تمت إعادة بناء فهرس المجموعة التفاعلية بنجاح ✅")
+                except Exception:
+                    pass
+
             # === معالجة طابور الانضمام والمصادر الجديدة ===
             pending = settings_manager.get("PENDING_JOINS")
             if pending and len(pending) > 0:
-                target = pending[0]
-                logger.info(f"عثرت على مصدر جديد للمعالجة: {target}")
+                target_raw = pending[0]
+                logger.info(f"عثرت على مصدر جديد للمعالجة: {target_raw}")
                 
+                # تطهير المعرف باستخدام المحرك الذكي
+                target_identifier = clean_identifier(target_raw)
                 chat = None
-                
-                # If target is numeric, convert to int
-                try:
-                    target_identifier = int(target)
-                except ValueError:
-                    target_identifier = target
 
                 # 1. Try to get chat (if it's public or we're already a member)
                 try:
@@ -184,16 +203,16 @@ async def monitor_pending_joins():
                         chat = await app.join_chat(target_identifier)
                         logger.info("join_chat successful.")
                     except Exception as e2:
-                        logger.error(f"فشل الانضمام لـ {target}: {e2}")
+                        logger.error(f"فشل الانضمام لـ {target_raw}: {e2}")
                         try:
-                            await app.send_message("me", f"❌ فشل الدخول للمصدر `{target}`:\n{e2}")
+                            await app.send_message("me", f"❌ فشل الدخول للمصدر `{target_raw}`:\n{e2}")
                         except Exception:
                             pass
                 
                 # 3. If successfully resolved/joined
                 if chat:
                     logger.info(f"Chat resolved. Adding to sources: {chat.id}")
-                    if add_source(chat.id):
+                    if add_source(chat.id, chat.title):
                         logger.info(f"تم الاعتماد المباشر للمصدر: {chat.title}")
                         try:
                             await app.send_message("me", f"✅ تم الاعتماد المباشر للمصدر: **{chat.title}**\nسيتم سحب آخر الملفات منه الآن...")
