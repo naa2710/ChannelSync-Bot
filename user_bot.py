@@ -205,9 +205,20 @@ async def on_text(client, message):
     if user_id not in ADMIN_IDS: return
     
     state = user_states.get(user_id)
-    if not state: return
-    
     text = message.text.strip()
+
+    # تحديث قناة الوجهة عبر الرابط (بدون حالة سابقة)
+    if not state and (text.startswith("https://t.me/") or text.startswith("@")):
+        try:
+            chat = await app.get_chat(text)
+            settings_manager.set("TARGET_CHANNEL_ID", chat.id)
+            await message.reply_text(f"🎯 **تحديث قناة الوجهة:**\n\n✅ تم الربط بنجاح!\n📌 الاسم: **{chat.title}**\n🆔 المعرف: `{chat.id}`\n\nسيقوم البوت الآن بمحاولة النقل لهذه القناة مباشرة.")
+            return
+        except Exception as e:
+            await message.reply_text(f"❌ فشل التعرف على القناة عبر الرابط: {e}")
+            return
+    
+    if not state: return
     
     if state == "AWAIT_ADD_SOURCE":
         from core.sources import add_source
