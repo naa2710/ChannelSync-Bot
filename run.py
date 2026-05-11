@@ -155,7 +155,6 @@ def run_bots():
     logger.info("جاري بدء تشغيل النظام الكامل الشامل (Launcher)...")
     
     scripts = {
-        "bot.py": None,
         "user_bot.py": None
     }
     

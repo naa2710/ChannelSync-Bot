@@ -28,6 +28,8 @@ def sync_backup_wrapper():
 # ربط الكولباك بمدير الإعدادات
 settings_manager.on_change_callback = sync_backup_wrapper
 
+from config import API_ID, API_HASH, PHONE, STRING_SESSION, BOT_TOKEN, settings_manager
+
 app = Client(
     "channelsync_userbot",
     api_id=API_ID,
@@ -36,6 +38,46 @@ app = Client(
     session_string=STRING_SESSION,
     workdir="."
 )
+
+# إضافة بوت التحكم بنفس المحرك لضمان تجاوز الحجب
+bot = Client(
+    "channelsync_bot_mtproto",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=BOT_TOKEN,
+    workdir="."
+)
+
+@bot.on_message(filters.command("start"))
+async def bot_start(client, message):
+    await message.reply_text(
+        "🚀 **أهلاً بك في لوحة تحكم ChannelSync (المحرك الموحد)**\n\n"
+        "لقد تم تفعيل المحرك الجذري لتجاوز قيود السيرفر. البوت الآن يعمل بكامل طاقته.\n\n"
+        "🔗 **لوحة التحكم عبر الويب:**\n"
+        "يمكنك إدارة كافة الإعدادات والقنوات من هنا:\n"
+        "https://huggingface.co/spaces/48mee/ChannelSync-Bot-Managed\n\n"
+        "✅ محرك النقل: متصل\n"
+        "✅ محرك الأوامر: متصل",
+        disable_web_page_preview=True
+    )
+
+# دالة لتشغيل العميلين معاً
+async def start_all():
+    await app.start()
+    await bot.start()
+    
+    # 1. استعادة البيانات
+    try:
+        if await restore_backups(app):
+            settings_manager.settings = settings_manager.load_settings()
+    except: pass
+    
+    asyncio.create_task(monitor_pending_joins())
+    
+    logger.info("🚀 تم تشغيل المحرك الموحد (User + Bot) بنجاح!")
+    await idle()
+    await app.stop()
+    await bot.stop()
 
 # =========================
 # معالجات الأوامر (الإدارة عبر الرسائل المحفوظة)
@@ -269,17 +311,20 @@ async def monitor_pending_joins():
         await asyncio.sleep(5)
 
 # =========================
-# التشغيل
+# التشغيل الموحد (المحرك الجذري)
 # =========================
-async def run_userbot():
+async def run_unified_engine():
     if not API_ID or not API_HASH:
         logger.error("بيانات API_ID و API_HASH غير موجودة!")
         return
         
+    logger.info("جاري تشغيل المحرك الموحد...")
     await app.start()
+    await bot.start()
     
     # 1. استعادة البيانات من السحاب عند بدء التشغيل
     try:
+        from core.sync import restore_backups
         if await restore_backups(app):
             logger.info("تم استعادة البيانات، جاري إعادة تحميل الإعدادات...")
             settings_manager.settings = settings_manager.load_settings()
@@ -289,20 +334,24 @@ async def run_userbot():
     # 2. تشغيل المهام الخلفية
     asyncio.create_task(monitor_pending_joins())
     
-    # 3. مهمة النسخ الاحتياطي الدوري (كل 6 ساعات مثلاً للضمان)
+    # 3. مهمة النسخ الاحتياطي الدوري
     async def periodic_sync():
         while True:
             await asyncio.sleep(6 * 3600)
             if app.is_connected:
+                from core.sync import upload_backups
                 await upload_backups(app)
     
     asyncio.create_task(periodic_sync())
     
     from pyrogram import idle
-    logger.info("تم تشغيل محرك النقل التلقائي (UserBot) وهو الآن يراقب المصادر...")
+    logger.info("✅ المحرك الموحد (UserBot + Dashboard) يعمل الآن وهو محصن ضد قيود الشبكة.")
     await idle()
     await app.stop()
+    await bot.stop()
 
 if __name__ == "__main__":
+    from pyrogram import idle
+    import asyncio
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(run_userbot())
+    loop.run_until_complete(run_unified_engine())
