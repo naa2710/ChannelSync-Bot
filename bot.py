@@ -1172,7 +1172,7 @@ def main():
         return
 
     from telegram.request import HTTPXRequest
-    request = HTTPXRequest(connect_timeout=20.0, read_timeout=20.0)
+    request = HTTPXRequest(connect_timeout=60.0, read_timeout=60.0)
     app = Application.builder().token(BOT_TOKEN).request(request).build()
 
     setup_conv = ConversationHandler(
