@@ -271,12 +271,21 @@ async def start_all():
     await app.start()
     await bot.start()
     
-    # 1. استعادة البيانات
+    # 1. استعادة البيانات وتجهيز القنوات
     try:
         if await restore_backups(app):
             settings_manager.settings = settings_manager.load_settings()
     except: pass
-    
+
+    # محاولة "رؤية" قناة الوجهة لتجنب خطأ Peer id invalid
+    target_id = settings_manager.get("TARGET_CHANNEL_ID")
+    if target_id:
+        try:
+            await app.get_chat(target_id)
+            logger.info(f"✅ تم التعرف على قناة الوجهة: {target_id}")
+        except Exception as e:
+            logger.warning(f"⚠️ تنبيه: اليوزربوت لا يرى قناة الوجهة ({target_id}). تأكد من أن الحساب عضو فيها. الخطأ: {e}")
+
     asyncio.create_task(monitor_pending_joins())
     
     logger.info("🚀 تم تشغيل المحرك الموحد (User + Bot) بنجاح!")

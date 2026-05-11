@@ -265,7 +265,11 @@ async def transfer_message(client: Client, message: Message):
                 text = clean_text(message.text) if settings_manager.get_for_source(source_chat_id, "DEFAULT_CLEAN_CAPTION") else message.text
                 sent_msg = await with_retry(client.send_message, chat_id=target_channel_id, text=text)
         else:
-            logger.error(f"فشل النقل (عذر غير الحماية): {e}")
+            error_str = str(e)
+            if "PEER_ID_INVALID" in error_str or "Could not find any entity" in error_str:
+                logger.error(f"❌ خطأ فادح: اليوزربوت لا يملك صلاحية الوصول لقناة الوجهة ({target_channel_id}). يجب أن يكون الحساب عضواً فيها.")
+            else:
+                logger.error(f"فشل النقل (عذر غير الحماية): {e}")
 
     # 5. نظام الفهرسة التلقائي (للملفات فقط)
     if sent_msg and file_type == "document":
