@@ -211,8 +211,10 @@ async def on_text(client, message):
     
     if state == "AWAIT_ADD_SOURCE":
         from core.sources import add_source
+        from core.resolver import clean_identifier
         try:
-            chat = await app.get_chat(text)
+            target = clean_identifier(text)
+            chat = await app.get_chat(target)
             if add_source(chat.id, chat.title):
                 await message.reply_text(f"✅ تم إضافة المصدر: **{chat.title}**", reply_markup=get_sources_keyboard())
                 user_states.pop(user_id)
