@@ -93,22 +93,95 @@ async def on_callback(client, query):
     elif data == "menu_smart_settings":
         await query.edit_message_text("⚙️ **الإعدادات الذكية:**", reply_markup=get_smart_settings_keyboard())
 
+    elif data == "menu_library":
+        await query.edit_message_text("📚 **المكتبة التفاعلية:**\nيرجى استخدام الأوامر اليدوية للتصفح حالياً أو بوابة الويب.", reply_markup=get_main_keyboard())
+
     elif data.startswith("manage_sources_"):
-        page = int(data.split("_")[-1])
-        await query.edit_message_text("📋 **قائمة المصادر:**", reply_markup=get_sources_manage_keyboard(page))
+        await query.edit_message_text("🛠 **الأدوات والمساعدة:**", reply_markup=get_tools_keyboard())
 
-    elif data == "add_source":
-        user_states[user_id] = "AWAIT_ADD_SOURCE"
-        await query.edit_message_text("➕ **إضافة قناة مصدر جديدة:**\n\nأرسل الآن **معرف القناة** أو **رابطها** أو **يوزرها**:\n(مثال: `@channel` أو `-100...`)", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ إلغاء", callback_data="menu_sources")]]))
+    elif data == "menu_group_index":
+        await query.edit_message_text("📋 **المجموعة التفاعلية — الفهرس الذكي**", reply_markup=get_group_keyboard())
 
-    elif data.startswith("toggle_"):
+    elif data == "manage_targets":
+        await query.edit_message_text("🎯 **إدارة قنوات الوجهة:**", reply_markup=get_targets_manage_keyboard())
+
+    elif data == "menu_blacklist":
+        await query.edit_message_text("🚫 **قائمة الكلمات المحظورة:**", reply_markup=get_blacklist_keyboard())
+
+    elif data == "add_new_target":
+        user_states[user_id] = "AWAIT_TARGET_CHANNEL"
+        await query.edit_message_text("🎯 **إضافة قناة وجهة:**\nأرسل الآن رابط القناة أو الآيدي الخاص بها:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ إلغاء", callback_data="manage_targets")]]))
+
+    elif data.startswith("del_source_"):
+        parts = data.split("_")
+        chat_id = int(parts[2])
+        page = int(parts[3])
+        from core.sources import remove_source
+        remove_source(chat_id)
+        await query.answer("✅ تم حذف المصدر")
+        await query.edit_message_reply_markup(reply_markup=get_sources_manage_keyboard(page))
+
+    elif data.startswith("del_target_"):
+        tid = data.split("_")[-1]
+        targets = settings_manager.get("TARGET_CHANNELS") or {}
+        if tid in targets:
+            targets.pop(tid)
+            settings_manager.set("TARGET_CHANNELS", targets)
+            await query.answer("✅ تم حذف الوجهة")
+        await query.edit_message_reply_markup(reply_markup=get_targets_manage_keyboard())
+
+    elif data == "trigger_fetch_all":
+        settings_manager.set("TRIGGER_FETCH_ALL", True)
+        await query.answer("⏳ تم جدولة سحب الملفات في الخلفية!", show_alert=True)
+
+    elif data.startswith("fetch_100_"):
+        chat_id = int(data.split("_")[2])
+        requests = settings_manager.get("PENDING_FETCH_REQUESTS") or []
+        if not any(r['chat_id'] == chat_id for r in requests):
+            requests.append({"chat_id": chat_id, "limit": 100})
+            settings_manager.set("PENDING_FETCH_REQUESTS", requests)
+            await query.answer("⏳ تم جدولة سحب 100 ملف لهذا المصدر!", show_alert=True)
+        else:
+            await query.answer("⚠️ هناك طلب سحب جاري بالفعل لهذا المصدر.")
+
+    elif data == "edit_header_text":
+        user_states[user_id] = "AWAIT_HEADER_TEXT"
+        await query.edit_message_text("📝 **تعديل نص الترويسة:**\nأرسل النص الجديد الذي تريده:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ إلغاء", callback_data="menu_smart_settings")]]))
+
+    elif data == "add_blacklist_word":
+        user_states[user_id] = "AWAIT_BLACKLIST_WORD"
+        await query.edit_message_text("🚫 **إضافة كلمة محظورة:**\nأرسل الكلمة التي تريد حظرها:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ إلغاء", callback_data="menu_blacklist")]]))
+
+    elif data.startswith("del_word_"):
+        word = data.replace("del_word_", "")
+        words = settings_manager.get("BLACKLIST_WORDS") or []
+        if word in words:
+            words.remove(word)
+            settings_manager.set("BLACKLIST_WORDS", words)
+            await query.answer(f"✅ تم حذف: {word}")
+        await query.edit_message_reply_markup(reply_markup=get_blacklist_keyboard())
+
+    elif data == "grp_rebuild":
+        settings_manager.set("TRIGGER_REBUILD_GROUP_INDEX", True)
+        await query.answer("⏳ جاري إعادة بناء الفهرس في الخلفية!", show_alert=True)
+
+    elif data == "set_group_id":
+        user_states[user_id] = "AWAIT_GROUP_ID"
+        await query.edit_message_text("🔗 **ربط مجموعة الفهرس:**\nأرسل معرف المجموعة الجديد:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ إلغاء", callback_data="menu_group_index")]]))
+
+    elif data == "toggle_":
         key = data.replace("toggle_", "").upper()
-        # تحويل المفاتيح المختصرة لمفاتيح الإعدادات
-        map_keys = {"DOCS_ONLY": "DOCUMENTS_ONLY", "HASHTAG": "REQUIRE_HASHTAG", "ADMINS": "ADMINS_ONLY", "COPY_MODE": "USE_COPY_INSTEAD_OF_FORWARD"}
+        map_keys = {
+            "DOCS_ONLY": "DOCUMENTS_ONLY", 
+            "HASHTAG": "REQUIRE_HASHTAG", 
+            "ADMINS": "ADMINS_ONLY", 
+            "COPY_MODE": "USE_COPY_INSTEAD_OF_FORWARD",
+            "ADD_HEADER": "ADD_HEADER",
+            "CLEAN_ALL": "DEFAULT_CLEAN_CAPTION"
+        }
         real_key = map_keys.get(key, key)
-        current = settings_manager.get(real_key)
-        settings_manager.set(real_key, not current)
-        await query.answer(f"✅ تم التحديث")
+        settings_manager.set(real_key, not settings_manager.get(real_key))
+        await query.answer("✅ تم التحديث")
         await query.edit_message_reply_markup(reply_markup=get_smart_settings_keyboard())
 
     await query.answer()
@@ -122,19 +195,60 @@ async def on_text(client, message):
     state = user_states.get(user_id)
     if not state: return
     
+    text = message.text.strip()
+    
     if state == "AWAIT_ADD_SOURCE":
-        text = message.text.strip()
         from core.sources import add_source
-        # محاولة حل المعرف
         try:
             chat = await app.get_chat(text)
             if add_source(chat.id, chat.title):
-                await message.reply_text(f"✅ تم إضافة المصدر بنجاح:\n**{chat.title}** (`{chat.id}`)", reply_markup=get_sources_keyboard())
-                user_states.pop(user_id, None)
+                await message.reply_text(f"✅ تم إضافة المصدر: **{chat.title}**", reply_markup=get_sources_keyboard())
+                user_states.pop(user_id)
             else:
-                await message.reply_text("⚠️ هذا المصدر مضاف بالفعل.")
+                await message.reply_text("⚠️ المصدر مضاف مسبقاً.")
         except Exception as e:
-            await message.reply_text(f"❌ فشل العثور على القناة: {e}\nتأكد أن اليوزربوت عضو فيها إذا كانت خاصة.")
+            await message.reply_text(f"❌ خطأ: {e}")
+
+    elif state == "AWAIT_HEADER_TEXT":
+        settings_manager.set("HEADER_TEXT", text)
+        await message.reply_text("✅ تم تحديث الترويسة بنجاح.", reply_markup=get_smart_settings_keyboard())
+        user_states.pop(user_id)
+
+    elif state == "AWAIT_BLACKLIST_WORD":
+        words = settings_manager.get("BLACKLIST_WORDS") or []
+        if text not in words:
+            words.append(text)
+            settings_manager.set("BLACKLIST_WORDS", words)
+            await message.reply_text(f"✅ تمت إضافة `{text}` للقائمة السوداء.", reply_markup=get_blacklist_keyboard())
+        user_states.pop(user_id)
+
+    elif state == "AWAIT_TARGET_CHANNEL":
+        from core.resolver import clean_identifier
+        target_id = clean_identifier(text)
+        if isinstance(target_id, int):
+            settings_manager.set("TARGET_CHANNEL_ID", target_id)
+            user_states[user_id] = "AWAIT_TARGET_NAME"
+            await message.reply_text(f"✅ تم التعرف على الوجهة: `{target_id}`\n\nأرسل الآن **اسماً مستعاراً** لهذه القناة:")
+        else:
+            await message.reply_text("❌ يرجى إرسال آيدي صحيح (مثال: -100...)")
+
+    elif state == "AWAIT_TARGET_NAME":
+        targets = settings_manager.get("TARGET_CHANNELS") or {}
+        tid = settings_manager.get("TARGET_CHANNEL_ID")
+        targets[str(tid)] = text
+        settings_manager.set("TARGET_CHANNELS", targets)
+        await message.reply_text(f"✅ تم حفظ الوجهة باسم: **{text}**", reply_markup=get_targets_manage_keyboard())
+        user_states.pop(user_id)
+
+    elif state == "AWAIT_GROUP_ID":
+        from core.resolver import clean_identifier
+        group_id = clean_identifier(text)
+        if isinstance(group_id, int):
+            settings_manager.set("INDEX_GROUP_ID", group_id)
+            await message.reply_text(f"✅ تم ربط مجموعة الفهرس: `{group_id}`", reply_markup=get_group_keyboard())
+            user_states.pop(user_id)
+        else:
+            await message.reply_text("❌ يرجى إرسال آيدي صحيح.")
 
 # =========================
 # المحرك الموحد

@@ -70,12 +70,16 @@ def get_smart_settings_keyboard():
     hashtag = "✅" if settings_manager.get("REQUIRE_HASHTAG") else "❌"
     admins = "✅" if settings_manager.get("ADMINS_ONLY") else "❌"
     copy_mode = "✅" if settings_manager.get("USE_COPY_INSTEAD_OF_FORWARD") else "❌"
+    header = "✅" if settings_manager.get("ADD_HEADER") else "❌"
+    clean = "✅" if settings_manager.get("DEFAULT_CLEAN_CAPTION") else "❌"
     
     keyboard = [
         [InlineKeyboardButton(f"📄 مستندات فقط: {docs_only}", callback_data="toggle_docs_only")],
         [InlineKeyboardButton(f"🏷 اشتراط هاشتاق: {hashtag}", callback_data="toggle_hashtag")],
         [InlineKeyboardButton(f"👮‍♂️ للمشرفين فقط: {admins}", callback_data="toggle_admins")],
         [InlineKeyboardButton(f"🙈 إخفاء المصدر (Copy): {copy_mode}", callback_data="toggle_copy_mode")],
+        [InlineKeyboardButton(f"📝 إضافة ترويسة: {header}", callback_data="toggle_add_header")],
+        [InlineKeyboardButton(f"🧹 تنظيف الحقوق: {clean}", callback_data="toggle_clean_all")],
         [InlineKeyboardButton("✍️ تعديل نص الترويسة (Header)", callback_data="edit_header_text")],
         [InlineKeyboardButton("🚫 الكلمات المحظورة (Blacklist)", callback_data="menu_blacklist")],
         [InlineKeyboardButton("⬅️ عودة للرئيسية", callback_data="menu_main")]
@@ -84,4 +88,53 @@ def get_smart_settings_keyboard():
 
 def get_stats_keyboard():
     keyboard = [[InlineKeyboardButton("🔄 تحديث", callback_data="menu_stats")], [InlineKeyboardButton("⬅️ عودة", callback_data="menu_main")]]
+    return InlineKeyboardMarkup(keyboard)
+
+def get_tools_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("🔄 سحب جماعي الآن", callback_data="trigger_fetch_all")],
+        [InlineKeyboardButton("🔢 ضبط عدد رسائل السحب", callback_data="set_max_messages")],
+        [InlineKeyboardButton("🗑 مسح كافة المصادر", callback_data="clear_sources_confirm")],
+        [InlineKeyboardButton("⬅️ عودة للرئيسية", callback_data="menu_main")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+def get_group_keyboard():
+    group_id = settings_manager.get("INDEX_GROUP_ID")
+    auto = "✅" if settings_manager.get("GROUP_AUTO_UPDATE") else "❌"
+    status = f"🔗 `{group_id}`" if group_id else "❌ غير مرتبطة"
+    
+    keyboard = [
+        [InlineKeyboardButton(f"🔗 المجموعة: {status}", callback_data="set_group_id")],
+        [InlineKeyboardButton(f"⚡ التحديث التلقائي: {auto}", callback_data="grp_toggle_auto")],
+        [
+            InlineKeyboardButton("🔄 إعادة بناء الفهرس", callback_data="grp_rebuild"),
+            InlineKeyboardButton("📊 تحديث الإحصائيات", callback_data="grp_update_stats"),
+        ],
+        [InlineKeyboardButton("⬅️ عودة للرئيسية", callback_data="menu_main")],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+def get_targets_manage_keyboard():
+    targets = settings_manager.get("TARGET_CHANNELS") or {}
+    keyboard = []
+    
+    for tid, name in targets.items():
+        keyboard.append([
+            InlineKeyboardButton(f"📍 {name} ({tid})", callback_data="noop"),
+            InlineKeyboardButton("🗑", callback_data=f"del_target_{tid}")
+        ])
+    
+    keyboard.append([InlineKeyboardButton("➕ إضافة قناة وجهة جديدة", callback_data="add_new_target")])
+    keyboard.append([InlineKeyboardButton("⬅️ عودة للمصادر", callback_data="menu_sources")])
+    return InlineKeyboardMarkup(keyboard)
+
+def get_blacklist_keyboard():
+    words = settings_manager.get("BLACKLIST_WORDS") or []
+    keyboard = []
+    for word in words[:15]:
+        keyboard.append([InlineKeyboardButton(f"❌ {word}", callback_data=f"del_word_{word}")])
+    
+    keyboard.append([InlineKeyboardButton("➕ إضافة كلمة", callback_data="add_blacklist_word")])
+    keyboard.append([InlineKeyboardButton("⬅️ عودة", callback_data="menu_smart_settings")])
     return InlineKeyboardMarkup(keyboard)
