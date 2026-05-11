@@ -567,5 +567,21 @@ async def run_unified_engine():
 if __name__ == "__main__":
     from pyrogram import idle
     import asyncio
+    import pyrogram.errors
+    
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(run_unified_engine())
+    try:
+        loop.run_until_complete(run_unified_engine())
+    except pyrogram.errors.AuthKeyDuplicated:
+        print("\n" + "="*50)
+        print("❌ CRITICAL ERROR: AUTH_KEY_DUPLICATED")
+        print("The session string is already in use by another instance.")
+        print("PLEASE STOP YOUR LOCAL BOT AND RESTART THE SPACE.")
+        print("="*50 + "\n")
+        # الانتظار لمنع تكرار المحاولات السريع جداً في Hugging Face
+        import time
+        time.sleep(30)
+    except Exception as e:
+        print(f"❌ FATAL ERROR: {e}")
+        import time
+        time.sleep(10)
