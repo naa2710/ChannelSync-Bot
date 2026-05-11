@@ -11,6 +11,9 @@ def clean_identifier(text: str) -> str | int:
     
     # 1. إذا كان آيدي رقمي صريح (مثلاً -100123456)
     if re.match(r'^-?\d+$', text):
+        num_id = text.lstrip('-')
+        if len(num_id) >= 10 and not text.startswith("-100"):
+            return int(f"-100{num_id}")
         return int(text)
     
     # 2. روابط القنوات الخاصة (https://t.me/c/123456789/10)

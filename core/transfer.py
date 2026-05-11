@@ -186,9 +186,10 @@ import asyncio
 async def transfer_message(client: Client, message: Message):
     """المنطق الأساسي والوحيد لنقل الرسائل أو نسخها."""
     source_chat_id = message.chat.id
-    target_channel_id = settings_manager.get_for_source(source_chat_id, "TARGET_CHANNEL_ID")
+    from core.resolver import clean_identifier
+    target_channel_id = clean_identifier(settings_manager.get_for_source(source_chat_id, "TARGET_CHANNEL_ID"))
     if not target_channel_id:
-        target_channel_id = settings_manager.get("TARGET_CHANNEL_ID")
+        target_channel_id = clean_identifier(settings_manager.get("TARGET_CHANNEL_ID"))
     
     # 1. إرسال الهيدر
     await send_header_if_needed(client, message, target_channel_id, source_chat_id)
