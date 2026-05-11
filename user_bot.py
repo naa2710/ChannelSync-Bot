@@ -277,14 +277,21 @@ async def start_all():
             settings_manager.settings = settings_manager.load_settings()
     except: pass
 
-    # محاولة "رؤية" قناة الوجهة لتجنب خطأ Peer id invalid
+    # محاولة "رؤية" قناة الوجهة وتثبيتها في ذاكرة اليوزربوت
     target_id = settings_manager.get("TARGET_CHANNEL_ID")
     if target_id:
         try:
-            await app.get_chat(target_id)
-            logger.info(f"✅ تم التعرف على قناة الوجهة: {target_id}")
+            # محاولة جلب الدردشة لتثبيت المعرف
+            chat = await app.get_chat(target_id)
+            logger.info(f"✅ تم التعرف على قناة الوجهة بنجاح: {chat.title} ({target_id})")
         except Exception as e:
-            logger.warning(f"⚠️ تنبيه: اليوزربوت لا يرى قناة الوجهة ({target_id}). تأكد من أن الحساب عضو فيها. الخطأ: {e}")
+            logger.warning(f"⚠️ تنبيه: اليوزربوت لا يرى قناة الوجهة ({target_id}). جاري محاولة الحل...")
+            try:
+                # إذا كان معرفاً نصياً أو رابطاً، نحاول الانضمام
+                await app.join_chat(target_id)
+                logger.info(f"✅ تم الانضمام لقناة الوجهة بنجاح.")
+            except Exception as join_err:
+                logger.error(f"❌ فشل فادح: اليوزربوت لا يملك أي وسيلة للوصول للقناة {target_id}. يرجى إضافة حسابك للقناة كعضو.")
 
     asyncio.create_task(monitor_pending_joins())
     
