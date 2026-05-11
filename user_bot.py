@@ -100,7 +100,7 @@ async def on_callback(client, query):
     elif data == "menu_library":
         await query.edit_message_text("📚 **المكتبة التفاعلية:**\nيرجى استخدام الأوامر اليدوية للتصفح حالياً أو بوابة الويب.", reply_markup=get_main_keyboard())
 
-    elif data.startswith("manage_sources_"):
+    elif data == "menu_tools":
         await query.edit_message_text("🛠 **الأدوات والمساعدة:**", reply_markup=get_tools_keyboard())
 
     elif data == "menu_group_index":
@@ -115,6 +115,14 @@ async def on_callback(client, query):
     elif data == "add_new_target":
         user_states[user_id] = "AWAIT_TARGET_CHANNEL"
         await query.edit_message_text("🎯 **إضافة قناة وجهة:**\nأرسل الآن رابط القناة أو الآيدي الخاص بها:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ إلغاء", callback_data="manage_targets")]]))
+
+    elif data == "add_source":
+        user_states[user_id] = "AWAIT_ADD_SOURCE"
+        await query.edit_message_text("➕ **إضافة قناة مصدر جديدة:**\n\nأرسل الآن **معرف القناة** أو **رابطها** أو **يوزرها**:\n(مثال: `@channel` أو `-100...`)", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ إلغاء", callback_data="menu_sources")]]))
+
+    elif data.startswith("manage_sources_"):
+        page = int(data.split("_")[-1])
+        await query.edit_message_text("📋 **قائمة المصادر:**", reply_markup=get_sources_manage_keyboard(page))
 
     elif data.startswith("del_source_"):
         parts = data.split("_")
@@ -173,7 +181,7 @@ async def on_callback(client, query):
         user_states[user_id] = "AWAIT_GROUP_ID"
         await query.edit_message_text("🔗 **ربط مجموعة الفهرس:**\nأرسل معرف المجموعة الجديد:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ إلغاء", callback_data="menu_group_index")]]))
 
-    elif data == "toggle_":
+    elif data.startswith("toggle_"):
         key = data.replace("toggle_", "").upper()
         map_keys = {
             "DOCS_ONLY": "DOCUMENTS_ONLY", 
