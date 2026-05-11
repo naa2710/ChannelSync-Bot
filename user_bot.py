@@ -1,6 +1,6 @@
 import asyncio
 from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import API_ID, API_HASH, PHONE, STRING_SESSION, ADMIN_IDS, settings_manager
 from core.sources import is_allowed_chat, add_source
