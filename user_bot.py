@@ -388,6 +388,8 @@ async def auto_transfer_router(client: Client, message: Message):
         # تسجيل المعالجة لمنع التكرار مستقبلاً
         dedup_manager.mark_processed(chat_id, message.id)
         logger.info(f"✅ نٌقلت بنجاح من {chat_id} (Message ID: {message.id})")
+        # تشغيل الرفع التلقائي لضمان حفظ حالة نقل الملف وقاعدة البيانات
+        sync_backup_wrapper()
     except Exception as e:
         logger.error(f"❌ فشل النقل من {chat_id}: {e}")
 

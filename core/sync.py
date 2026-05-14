@@ -70,16 +70,26 @@ async def restore_backups(client):
 
 # للتحكم في وتيرة الرفع التلقائي
 _lock = asyncio.Lock()
-_last_sync = 0
+_sync_task = None
 
 async def safe_sync_backup(client):
-    """تنفيذ النسخ الاحتياطي بأمان وبدون تكرار مفرط."""
-    global _last_sync
-    import time
+    """تنفيذ النسخ الاحتياطي بأمان وبدون تكرار مفرط (Debounce)."""
+    global _sync_task
     
     async with _lock:
-        now = time.time()
-        # السماح بالرفع مرة كل 5 دقائق على الأكثر لتجنب الـ Flood
-        if now - _last_sync > 300:
-            await upload_backups(client)
-            _last_sync = now
+        # إلغاء المهمة السابقة إذا كانت موجودة لعمل Debounce
+        if _sync_task and not _sync_task.done():
+            _sync_task.cancel()
+            
+        async def do_sync():
+            try:
+                await asyncio.sleep(15) # الانتظار 15 ثانية لتجميع التغييرات
+                await upload_backups(client)
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.error(f"خطأ أثناء النسخ الاحتياطي التلقائي: {e}")
+                
+        # استخدام الحدث الحالي لإنشاء المهمة
+        loop = asyncio.get_event_loop()
+        _sync_task = loop.create_task(do_sync())

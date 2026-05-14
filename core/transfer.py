@@ -346,7 +346,9 @@ async def transfer_last_n_files(client: Client, chat_id: int, limit: int = 5):
                         await asyncio.sleep(1.5) 
                     except Exception as e:
                         logger.error(f"خطأ أثناء تفريغ الرسالة {msg.id}: {e}")
-                
         logger.info(f"تم إكمال نقل {count} ملفات جديدة من {chat_id}.")
+        # تشغيل الرفع التلقائي لضمان حفظ حالة النقل
+        if count > 0:
+            settings_manager.save_settings()
     except Exception as e:
         logger.error(f"حدث خطأ أثناء نقل الملفات المتأخرة من {chat_id}: {e}")
